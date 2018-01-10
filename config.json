@@ -6,6 +6,7 @@
     { "removeXMLProcInst": true },
     { "removeXMLNS": true },
     { "removeEmptyAttrs": true },
+    { "removeEmptyText": true },
     { "removeComments": true },
     { "removeMetadata": true },
     { "removeDesc": true },

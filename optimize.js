@@ -1,3 +1,4 @@
+
 const { exec } = require('child_process');
 const svgoConfig = require('./config.json');
 const componentNames = require('./components.json').componentNames;
@@ -6,7 +7,6 @@ const fs = require('fs'),
   path = require('path'),
   SVGO = require('svgo'),
   svgo = new SVGO(svgoConfig);
-
 const READ_DIR = 'svgs_to_optimize';
 const WRITE_DIR = 'optimized_react_components';
 
@@ -15,42 +15,52 @@ const files = fs.readdirSync(READ_DIR);
 /**
  *  takes a file, opens it and passes it to svgo optimize
  *  the callback for this then calls svgtoreact from cli
+ * 
+ * 
+ *   some text areo convert to font 
  */
 const optimize = f => {
-  const fullFilePath = `${__dirname}/${READ_DIR}/${f}`;
+  //const fullFilePath = `${__dirname}/${READ_DIR}/${f}`;
+  const fullFilePath = path.resolve(__dirname,READ_DIR,f);
   fs.readFile(fullFilePath, 'utf8', function(err, data) {
     if (err) {
       throw err;
     }
-    svgo.optimize(data, callSVGToReact(fullFilePath));
-  });
-};
+   
+    const filename = `${f.substring(
+      0,
+      f.indexOf('.svg')
+    )}-a`;
+    const tempFileName = `${filename}.svg`;
+    const intermediateFilePath = path.resolve(__dirname,READ_DIR,tempFileName);
+    
+  
+    //svgo.optimize(data,info,callSVGToReact(fullFilePath));
 
-/**
- *  takes the optimized data string, saves it, and passes it on to 
- *  svgtoreact, which creates a .js file
- */
-const callSVGToReact = fullFilePath => optimized => {
-  const filename = `${fullFilePath.substring(
-    0,
-    fullFilePath.indexOf('.svg')
-  )}-a`;
-  const intermediateFilePath = `${filename}.svg`;
-
-  fs.writeFile(intermediateFilePath, optimized.data, function(err) {
-    if (err) {
-      return console.log(err);
-    }
-
-    // svg-to-react cli
-    const componentName = `${filename.substring(
-      filename.lastIndexOf('/') + 1,
-      filename.indexOf('-a')
-    )}`;
-    const command = `svgtoreact ${READ_DIR}/${filename.substring(
-      filename.lastIndexOf('/') + 1
-    )} ${componentName}`;
-    exec(command, cleanup(componentName, intermediateFilePath));
+    svgo.optimize(data,{path:fullFilePath}).then(
+      function (result) {
+        
+        fs.writeFile(intermediateFilePath, result.data, function(err) {
+          if (err) {
+            return console.log(err);
+          }
+          // console.log(result);
+          // svg-to-react cli
+          const componentName = `${filename.substring(
+            filename.lastIndexOf('/') + 1,
+            filename.indexOf('-a')
+          )}`;
+          
+          const command = `svgtoreact ${READ_DIR}/${filename.substring(
+            filename.lastIndexOf('/') + 1
+          )} ${componentName}`;
+          //console.log(command);
+          exec(command, cleanup(componentName, intermediateFilePath));
+          
+        });
+      }
+    );
+   // console.log(fullFilePath);
   });
 };
 
@@ -80,10 +90,12 @@ const cleanup = (componentName, intermediateFilePath) => (
       () => {}
     );
 
-    uppercaseComponent(`${componentName}.js`);
   }
+  
   // delete intermediary *-a.svg file
   fs.unlinkSync(intermediateFilePath);
+  //fix for some error
+  uppercaseComponent(`${componentName}.js`);
   console.log('DONE! Check optimized_react_components');
 };
 
@@ -98,20 +110,19 @@ const uppercaseComponent = f => {
     if (err) {
       throw err;
     }
-
+ 
     let used = [];
 
     let modified = componentNames.reduce((data, componentToMatch) => {
-      if (data.indexOf(`<${componentToMatch.toLowerCase()}`) >= 0) {
+      if (data.indexOf(`<${componentToMatch.firstLowerCase()}`) >= 0) {
         used.push(componentToMatch);
-
         return data
           .replace(
-            new RegExp(`<${componentToMatch.toLowerCase()}`, 'g'),
+            new RegExp(`<${componentToMatch.firstLowerCase()}`, 'g'),
             `<${componentToMatch}`
           )
           .replace(
-            new RegExp(`</${componentToMatch.toLowerCase()}`, 'g'),
+            new RegExp(`</${componentToMatch.firstLowerCase()}`, 'g'),
             `</${componentToMatch}`
           );
       }
@@ -125,5 +136,12 @@ const uppercaseComponent = f => {
     fs.writeFileSync(fullFilePath, modified);
   });
 };
+
+
+String.prototype.firstLowerCase = function(){
+  return this.replace(/^[a-zA-Z]{0,2}/,(s)=>{
+    return s.toLowerCase();
+  });
+}
 
 files.map(optimize); // optimize/convert
